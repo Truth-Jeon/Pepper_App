@@ -1,0 +1,218 @@
+import React, {useCallback, useEffect, useState} from 'react';
+import {
+  FlatList,
+  Image,
+  SectionList,
+  TouchableOpacity,
+  RefreshControl,
+} from 'react-native';
+import styled from 'styled-components';
+import n from 'helper/normalize';
+import {colors} from 'styles/colors';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
+import {getRequest, postRequest} from 'apis/common';
+import {ModalSlide} from 'components/Modal/ModalSlide';
+import moment from 'moment';
+import ImgArrowBottom from 'images/png/img-bottom-arrow.png';
+import {ButtonL, SingleLineList, St, Sv} from 'components/index';
+import {DepositWatingSection} from './DepositWatingSection';
+import {toastShowTop} from 'helper/toastHelper';
+
+const SORT_ARRAY = [
+  {
+    id: 'all',
+    title: '전체',
+  },
+  {
+    id: 'charge',
+    title: '충전',
+  },
+  {
+    id: 'transfer',
+    title: '송금',
+  },
+  {
+    id: 'withdraw',
+    title: '출금',
+  },
+];
+
+const TRANSACTION_TYPE = [
+  {
+    id: 100,
+    name: '충전',
+  },
+  {
+    id: 200,
+    name: '송금',
+  },
+  {
+    id: 300,
+    name: '출금',
+  },
+];
+
+moment.locale('ko');
+
+export const TransactionLogSection = ({
+  setIsOverlay,
+  isRefresh,
+  setIsRefresh,
+}) => {
+  const [logRowList, setLogRowList] = useState([]);
+  const [logList, setLogList] = useState([]);
+
+  const navigation = useNavigation();
+
+  const getMarketTransactionLog = async () => {
+    try {
+      const result = await getRequest('/v1/account/transaction/request/');
+      setLogRowList(result.results);
+    } catch (e) {
+      console.log('??', e);
+    }
+  };
+
+  const generateLogList = () => {
+    const result = [
+      ...new Set(
+        logRowList.map(item => moment(item.created_at).format('YYYY-MM-DD')),
+      ),
+    ].map(value => {
+      return {
+        title: value,
+        data: logRowList.filter(
+          item => moment(item.created_at).format('YYYY-MM-DD') === value,
+        ),
+      };
+    });
+
+    setLogList(result);
+  };
+
+  useEffect(generateLogList, [logRowList]);
+
+  useFocusEffect(
+    useCallback(() => {
+      getMarketTransactionLog();
+    }, []),
+  );
+
+  useEffect(() => {
+    if (isRefresh) {
+      getMarketTransactionLog();
+    }
+  }, [isRefresh]);
+
+  const RenderItem = ({
+    date,
+    is_accepted,
+    is_refused,
+    isMe,
+    balance,
+    quick_address,
+  }) => {
+    const getState = () => {
+      if (!is_accepted && !is_refused) {
+        return {title: '대기중', color: colors.g2};
+      } else if (is_accepted) {
+        return {title: '송금완료', color: colors.primary};
+      } else {
+        return {title: '거절됨', color: colors.red};
+      }
+    };
+    return (
+      <Sv pb={12} pt={12} as={TouchableOpacity}>
+        <Sv row>
+          <Sv f={1}>
+            <St s2 g0>
+              {quick_address} 송금 요청
+            </St>
+          </Sv>
+
+          <St s2 style={{color: getState().color}}>
+            {getState()?.title}
+          </St>
+        </Sv>
+        <Sv row>
+          <Sv f={1}>
+            <St c2 g3>
+              {date}
+            </St>
+          </Sv>
+          <St c2 g3>
+            {balance?.toLocaleString()} 원
+          </St>
+        </Sv>
+      </Sv>
+    );
+  };
+
+  return logList.length == 0 ? (
+    <></>
+  ) : (
+    <Sv f={1}>
+      <S.Container as={TouchableOpacity} activeOpacity={1}>
+        <Sv mt={4} jsb row w="100%">
+          <St s2 g2>
+            송금 요청 내역
+          </St>
+        </Sv>
+        <Sv f={1} w={'100%'} pt={18}>
+          {logList.length > 0 ? (
+            logList.map((his, index) => {
+              return (
+                <>
+                  <St c2 g3>
+                    {his.title}
+                  </St>
+                  {his.data.map((item, index) => {
+                    return (
+                      <RenderItem
+                        isMe={item.is_me}
+                        date={moment(item.created_at).format('HH:mm')}
+                        quick_address={item.target_account.quick_address}
+                        is_accepted={item.is_accepted}
+                        is_refused={item.is_refused}
+                        balance={item.balance}
+                      />
+                    );
+                  })}
+                </>
+              );
+            })
+          ) : (
+            <Sv mt={20} act jct>
+              <St c1 g4>
+                내역이 없습니다.
+              </St>
+            </Sv>
+          )}
+        </Sv>
+      </S.Container>
+    </Sv>
+  );
+};
+
+const S = {};
+
+S.ImgList = styled(Image)`
+  width: ${n(200)}px;
+  height: ${n(200)}px;
+  resize-mode: contain;
+`;
+
+S.Container = styled(Sv)`
+  /* margin-top: ${n(20)}px; */
+  background-color: ${colors.white};
+  padding: ${n(16)}px;
+  margin: ${n(8)}px ${n(20)}px;
+  border-radius: ${n(20)}px;
+  //shadow
+  shadow-color: #000;
+  shadow-offset: 0px 0px;
+  shadow-opacity: 0.04;
+  shadow-radius: 12px;
+  elevation: 2;
+  min-height: ${n(200)}px;
+`;

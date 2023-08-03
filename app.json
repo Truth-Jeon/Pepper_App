@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "outsource_app",
+    "slug": "outsource_app",
+    "version": "1.0.0",
+    "assetBundlePatterns": [
+      "**/*"
+    ]
+  },
+  "name": "outsource_app"
+}
